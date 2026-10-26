@@ -219,6 +219,7 @@ td.right, th.right { text-align: right; }
 .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--quiet); }
 .status.running { color: #7A5A00; }
 .status.completed { color: var(--signal); }
+.status.paused { color: var(--quiet); }
 .status.failed, .status.cancelled { color: var(--lamp-down); }
 
 .empty { color: var(--quiet); padding: 18px 0; }

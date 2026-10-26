@@ -25,8 +25,8 @@ function bindApi(base) {
 }
 
 const STRATEGY = {
-  ringall: 'Ring everyone at once',
-  sequential: 'Ring one by one, in order',
+  ringall: 'Ring every free member at once',
+  sequential: 'Ring free members one by one, in order',
 };
 
 // ── Inbound route: trunk ──▶ destination ───────────────────
@@ -273,6 +273,9 @@ function RingGroups({ data, run, api }) {
         <h2 id="groups">Ring groups</h2>
         {!editing && <button className="btn sm" onClick={() => setEditing(EMPTY_GROUP)}>New ring group</button>}
       </div>
+      <p className="quiet small" style={{ marginTop: -6, marginBottom: 12 }}>
+        Members already on a call are skipped. If everyone is busy, the caller hears ringing for up to a minute until someone is free.
+      </p>
       {data.ringGroups.length === 0 && !editing && (
         <p className="empty">No ring groups yet. A ring group lets one number ring several extensions.</p>
       )}

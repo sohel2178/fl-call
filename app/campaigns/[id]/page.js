@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Shell from '../../../components/Shell';
 import { LampBoard, Outcome, KINDS, recordKind } from '../../../components/LampBoard';
-import { getCampaign, getRecords, downloadResults, cancelCampaign, deleteCampaign } from '../../../lib/api';
+import { getCampaign, getRecords, downloadResults, cancelCampaign, pauseCampaign, resumeCampaign, deleteCampaign } from '../../../lib/api';
 
 const TYPE_LABEL = {
   'service-charge': 'Service charge reminder',
@@ -61,8 +61,15 @@ export default function CampaignPage({ params }) {
     }
   }
 
+  async function togglePause() {
+    try {
+      await (c.status === 'paused' ? resumeCampaign(id) : pauseCampaign(id));
+      refresh();
+    } catch (e) { setErr(e.message); }
+  }
+
   async function remove() {
-    const msg = c?.status === 'running'
+    const msg = ['running', 'paused'].includes(c?.status)
       ? 'This campaign is still calling. Stop it and delete it with all its results?'
       : 'Delete this campaign and all its results? This can’t be undone.';
     if (!window.confirm(msg)) return;
@@ -83,10 +90,11 @@ export default function CampaignPage({ params }) {
   if (!c) return <Shell title="Loading…" />;
 
   const isCheck = c.type === 'number-check';
-  const running = c.status === 'running' || c.status === 'pending';
+  const paused = c.status === 'paused';
+  const running = c.status === 'running' || c.status === 'pending' || paused;
   const meta = c.meta || {};
-  const state = running
-    ? (meta.retrying ? `redialing inconclusive numbers (pass ${meta.retrying})` : 'calling now')
+  const state = paused ? 'paused'
+    : running ? (meta.retrying ? `redialing inconclusive numbers (pass ${meta.retrying})` : 'calling now')
     : { completed: 'done', cancelled: 'stopped', failed: 'failed' }[c.status] || c.status;
 
   return (
@@ -97,6 +105,11 @@ export default function CampaignPage({ params }) {
         <>
           <button className="btn" onClick={() => downloadResults(id, c.type).catch((e) => setErr(e.message))}
             disabled={c.done === 0}>Download results</button>
+          {running && (
+            <button className={paused ? 'btn primary' : 'btn'} onClick={togglePause} disabled={c.status === 'pending'}>
+              {paused ? 'Resume campaign' : 'Pause campaign'}
+            </button>
+          )}
           {running && <button className="btn" onClick={stop}>Stop campaign</button>}
           <button className="btn danger" onClick={remove}>Delete campaign</button>
         </>
@@ -151,11 +164,11 @@ export default function CampaignPage({ params }) {
               {isCheck ? (
                 <tr><th>Number</th><th>Result</th><th>Reachable</th><th className="right">Cause</th><th>Detail</th><th className="right">Tries</th></tr>
               ) : (
-                <tr><th>Number</th><th className="right">Vehicles</th><th className="right">Due</th><th>Result</th><th>Message played</th><th className="right">Tries</th></tr>
+                <tr><th>Number</th><th className="right">Vehicles</th><th className="right">Due</th><th>Result</th><th>Message played</th><th className="right">Cause</th><th>Detail</th><th className="right">Tries</th></tr>
               )}
             </thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={6} className="empty">No numbers in this group.</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={isCheck ? 6 : 8} className="empty">No numbers in this group.</td></tr>}
               {shown.map((r) => (
                 <tr key={r.id} id={`rec-${r.id}`} className={flash === r.id ? 'flash' : undefined}>
                   <td className="num">{r.number}</td>
@@ -172,6 +185,8 @@ export default function CampaignPage({ params }) {
                       <td className="right num">{r.due_charge ?? '–'}</td>
                       <td><Outcome record={r} /></td>
                       <td>{yesNo(r.played)}</td>
+                      <td className="right num">{r.hangup_cause ?? '–'}</td>
+                      <td className="quiet small">{r.detail || '–'}</td>
                     </>
                   )}
                   <td className="right num">{r.attempts || '–'}</td>

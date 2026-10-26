@@ -13,7 +13,7 @@ const TYPE_LABEL = {
 };
 
 const STATUS_LABEL = {
-  pending: 'Starting', running: 'Calling', completed: 'Done', failed: 'Failed', cancelled: 'Stopped',
+  pending: 'Starting', running: 'Calling', completed: 'Done', failed: 'Failed', cancelled: 'Stopped', paused: 'Paused',
 };
 
 export default function Home() {
