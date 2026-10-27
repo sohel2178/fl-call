@@ -1,6 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
-import { createCampaign } from '../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { createCampaign, previewOffer } from '../lib/api';
+
+const OFFER_MAX = 2000;
 
 const TYPES = [
   {
@@ -27,6 +29,14 @@ const TYPES = [
     placeholder: 'Tracker SIM check',
     cta: 'Check numbers',
   },
+  {
+    type: 'offer',
+    tab: 'Offer',
+    what: 'Calls each number and plays your offer, spoken in a natural voice.',
+    columns: 'number',
+    placeholder: 'Eid offer',
+    cta: 'Start calling',
+  },
 ];
 
 export default function CampaignComposer({ onCreated }) {
@@ -37,8 +47,33 @@ export default function CampaignComposer({ onCreated }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [warn, setWarn] = useState([]);
+  const [offerText, setOfferText] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewing, setPreviewing] = useState(false);
   const inputRef = useRef(null);
   const def = TYPES.find((t) => t.type === type);
+  const isOffer = type === 'offer';
+
+  // Free the blob URL of the previous preview.
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  function editOffer(text) {
+    setOfferText(text);
+    setPreviewUrl(''); // the preview no longer matches the text
+  }
+
+  async function preview() {
+    setErr('');
+    if (!offerText.trim()) { setErr('Write the offer text first.'); return; }
+    setPreviewing(true);
+    try {
+      setPreviewUrl(URL.createObjectURL(await previewOffer(offerText.trim())));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setPreviewing(false);
+    }
+  }
 
   function pick(f) {
     setErr('');
@@ -49,12 +84,14 @@ export default function CampaignComposer({ onCreated }) {
   async function submit(e) {
     e.preventDefault();
     setErr(''); setWarn([]);
+    if (isOffer && !offerText.trim()) { setErr('Write the offer text to play on the call.'); return; }
     if (!file) { setErr('Add a CSV file with the numbers to call.'); return; }
     setBusy(true);
     try {
-      const res = await createCampaign({ type, name, file });
+      const res = await createCampaign({ type, name, file, offerText: isOffer ? offerText.trim() : '' });
       setWarn(res.warnings || []);
       setName(''); setFile(null);
+      if (isOffer) editOffer('');
       if (inputRef.current) inputRef.current.value = '';
       onCreated?.(res.campaign);
     } catch (e2) {
@@ -80,10 +117,28 @@ export default function CampaignComposer({ onCreated }) {
       </div>
 
       <label className="field">
-        Name (optional)
+        {isOffer ? 'Campaign name' : 'Name (optional)'}
         <input className="input" type="text" value={name} placeholder={def.placeholder}
           onChange={(e) => setName(e.target.value)} />
       </label>
+
+      {isOffer && (
+        <div>
+          <label className="field">
+            Offer text
+            <textarea className="input" rows={5} maxLength={OFFER_MAX} value={offerText}
+              placeholder="আসসালামু আলাইকুম। সুলতান ট্র্যাকার থেকে বলছি…"
+              onChange={(e) => editOffer(e.target.value)} />
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={preview} disabled={previewing || !offerText.trim()}>
+              {previewing ? 'Generating voice…' : 'Preview voice'}
+            </button>
+            <span className="quiet small">{offerText.length}/{OFFER_MAX}</span>
+          </div>
+          {previewUrl && <audio src={previewUrl} controls autoPlay style={{ width: '100%', marginTop: 8 }} />}
+        </div>
+      )}
 
       <label
         className={`dropzone${over ? ' over' : ''}${file ? ' has-file' : ''}`}
