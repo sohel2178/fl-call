@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { createCampaign, previewOffer } from '../lib/api';
+import { createCampaign, getLines, previewOffer } from '../lib/api';
 
 const OFFER_MAX = 2000;
 
@@ -50,9 +50,14 @@ export default function CampaignComposer({ onCreated }) {
   const [offerText, setOfferText] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewing, setPreviewing] = useState(false);
+  const [lines, setLines] = useState([]);
+  const [pbx, setPbx] = useState(1);
   const inputRef = useRef(null);
   const def = TYPES.find((t) => t.type === type);
   const isOffer = type === 'offer';
+
+  // Lines the offer can call from (PBX-2 only appears when the server has it).
+  useEffect(() => { getLines().then(setLines).catch(() => setLines([])); }, []);
 
   // Free the blob URL of the previous preview.
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -88,7 +93,11 @@ export default function CampaignComposer({ onCreated }) {
     if (!file) { setErr('Add a CSV file with the numbers to call.'); return; }
     setBusy(true);
     try {
-      const res = await createCampaign({ type, name, file, offerText: isOffer ? offerText.trim() : '' });
+      const res = await createCampaign({
+        type, name, file,
+        offerText: isOffer ? offerText.trim() : '',
+        pbx: isOffer ? pbx : undefined,
+      });
       setWarn(res.warnings || []);
       setName(''); setFile(null);
       if (isOffer) editOffer('');
@@ -121,6 +130,19 @@ export default function CampaignComposer({ onCreated }) {
         <input className="input" type="text" value={name} placeholder={def.placeholder}
           onChange={(e) => setName(e.target.value)} />
       </label>
+
+      {isOffer && lines.length > 1 && (
+        <div className="field">
+          Call from
+          <div className="segmented" role="group" aria-label="Call from">
+            {lines.map((l) => (
+              <button key={l.pbx} type="button" aria-pressed={l.pbx === pbx} onClick={() => setPbx(l.pbx)}>
+                PBX-{l.pbx} · {l.number}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isOffer && (
         <div>

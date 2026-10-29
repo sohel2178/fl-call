@@ -42,7 +42,7 @@ export default function Home() {
               <div style={{ minWidth: 0 }}>
                 <div className="campaign-name">{c.name}</div>
                 <div className="campaign-meta">
-                  {TYPE_LABEL[c.type] || c.type}, <span className={`status ${c.status}`}>{STATUS_LABEL[c.status] || c.status}</span>
+                  {TYPE_LABEL[c.type] || c.type}{c.meta?.pbx === 2 ? ' · PBX-2' : ''}, <span className={`status ${c.status}`}>{STATUS_LABEL[c.status] || c.status}</span>
                 </div>
               </div>
               <div className="campaign-count num">{c.done}<span className="quiet">/{c.total}</span></div>
